@@ -16,11 +16,14 @@ export class WebRTCFileTransfer {
   private onFileReceivedCallback?: (file: Blob, fileName: string) => void;
   private onIceCandidateCallback?: (candidate: RTCIceCandidate) => void;
   private onConnectionStateChangeCallback?: (state: string) => void;
+  private onTransferCancelledCallback?: () => void;
   private receivedChunks: ArrayBuffer[] = [];
   private receivedFileName: string = '';
   private receivedFileSize: number = 0;
   private startTime: number = 0;
   private localIceCandidates: RTCIceCandidate[] = [];
+  private isTransferCancelled: boolean = false;
+  private currentTransferAbortController: AbortController | null = null;
 
   constructor() {
     this.initializePeerConnection();
@@ -128,13 +131,24 @@ export class WebRTCFileTransfer {
         this.receivedFileSize = message.size;
         this.receivedChunks = [];
         this.startTime = Date.now();
+        this.isTransferCancelled = false;
         console.log('Receiving file:', message.name, 'Size:', message.size);
       } else if (message.type === 'EOF') {
         // File transfer complete
-        this.assembleAndDownloadFile();
+        if (!this.isTransferCancelled) {
+          this.assembleAndDownloadFile();
+        }
+      } else if (message.type === 'CANCEL') {
+        // Transfer cancelled by sender
+        console.log('Transfer cancelled by sender');
+        this.handleTransferCancellation();
       }
     } else if (data instanceof ArrayBuffer) {
       // Received file chunk
+      if (this.isTransferCancelled) {
+        return; // Ignore chunks if transfer is cancelled
+      }
+      
       this.receivedChunks.push(data);
       
       const transferred = this.receivedChunks.reduce((acc, chunk) => acc + chunk.byteLength, 0);
@@ -181,6 +195,10 @@ export class WebRTCFileTransfer {
       throw new Error(`Peer connection not established. Current state: ${this.peerConnection?.connectionState}`);
     }
 
+    // Create abort controller for this transfer
+    this.currentTransferAbortController = new AbortController();
+    this.isTransferCancelled = false;
+
     // Send file metadata first
     const metadata = {
       type: 'file-meta',
@@ -193,36 +211,61 @@ export class WebRTCFileTransfer {
     let offset = 0;
     this.startTime = Date.now();
 
-    while (offset < file.size) {
-      const chunk = file.slice(offset, offset + CHUNK_SIZE);
-      const arrayBuffer = await chunk.arrayBuffer();
-      
-      // Wait for buffer to be ready
-      while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 4) {
-        await new Promise(resolve => setTimeout(resolve, 10));
+    try {
+      while (offset < file.size && !this.isTransferCancelled) {
+        // Check if transfer was cancelled
+        if (this.currentTransferAbortController?.signal.aborted) {
+          throw new Error('Transfer cancelled');
+        }
+
+        const chunk = file.slice(offset, offset + CHUNK_SIZE);
+        const arrayBuffer = await chunk.arrayBuffer();
+        
+        // Wait for buffer to be ready
+        while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 4 && !this.isTransferCancelled) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+
+        if (this.isTransferCancelled) {
+          throw new Error('Transfer cancelled');
+        }
+
+        this.dataChannel.send(arrayBuffer);
+        offset += CHUNK_SIZE;
+
+        const elapsedTime = (Date.now() - this.startTime) / 1000;
+        const speed = offset / elapsedTime;
+        const percentage = (offset / file.size) * 100;
+
+        if (this.onProgressCallback) {
+          this.onProgressCallback({
+            fileName: file.name,
+            fileSize: file.size,
+            transferred: offset,
+            speed,
+            percentage: Math.min(percentage, 100),
+          });
+        }
       }
 
-      this.dataChannel.send(arrayBuffer);
-      offset += CHUNK_SIZE;
-
-      const elapsedTime = (Date.now() - this.startTime) / 1000;
-      const speed = offset / elapsedTime;
-      const percentage = (offset / file.size) * 100;
-
-      if (this.onProgressCallback) {
-        this.onProgressCallback({
-          fileName: file.name,
-          fileSize: file.size,
-          transferred: offset,
-          speed,
-          percentage: Math.min(percentage, 100),
-        });
+      if (this.isTransferCancelled) {
+        // Send cancellation message
+        this.dataChannel.send(JSON.stringify({ type: 'CANCEL' }));
+        throw new Error('Transfer cancelled');
       }
+
+      // Send EOF marker
+      this.dataChannel.send(JSON.stringify({ type: 'EOF' }));
+      console.log('File sent successfully');
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Transfer cancelled') {
+        console.log('File transfer cancelled');
+        throw error;
+      }
+      throw error;
+    } finally {
+      this.currentTransferAbortController = null;
     }
-
-    // Send EOF marker
-    this.dataChannel.send(JSON.stringify({ type: 'EOF' }));
-    console.log('File sent successfully');
   }
 
   onProgress(callback: (progress: FileTransferProgress) => void) {
@@ -241,6 +284,37 @@ export class WebRTCFileTransfer {
     this.onConnectionStateChangeCallback = callback;
   }
 
+  onTransferCancelled(callback: () => void) {
+    this.onTransferCancelledCallback = callback;
+  }
+
+  private handleTransferCancellation() {
+    this.isTransferCancelled = true;
+    this.receivedChunks = [];
+    this.receivedFileName = '';
+    this.receivedFileSize = 0;
+    
+    if (this.onTransferCancelledCallback) {
+      this.onTransferCancelledCallback();
+    }
+  }
+
+  cancelCurrentTransfer() {
+    if (this.currentTransferAbortController) {
+      this.currentTransferAbortController.abort();
+    }
+    this.isTransferCancelled = true;
+    
+    // If we're receiving a file, clean up
+    if (this.receivedChunks.length > 0) {
+      this.handleTransferCancellation();
+    }
+  }
+
+  isTransferInProgress(): boolean {
+    return this.currentTransferAbortController !== null || this.receivedChunks.length > 0;
+  }
+
   getIceCandidates(): RTCIceCandidate[] {
     return this.localIceCandidates;
   }
@@ -255,6 +329,9 @@ export class WebRTCFileTransfer {
   }
 
   disconnect() {
+    // Cancel any ongoing transfer
+    this.cancelCurrentTransfer();
+    
     this.dataChannel?.close();
     this.peerConnection?.close();
     this.dataChannel = null;
