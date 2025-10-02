@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { DeviceCard } from '@/components/DeviceCard';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { TransferProgress } from '@/components/TransferProgress';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { DownloadPrompt } from '@/components/DownloadPrompt';
 import { ConnectionRequestDialog } from '@/components/ConnectionRequestDialog';
-import { useDevicePresence } from '@/hooks/useDevicePresence';
 import { useWebRTCSignaling } from '@/hooks/useWebRTCSignaling';
 import { FileTransferProgress } from '@/lib/webrtc';
 import { Monitor, Link2, Copy, Check, Wifi, WifiOff } from 'lucide-react';
@@ -25,10 +23,7 @@ const Index = () => {
   const [receivedFile, setReceivedFile] = useState<{ blob: Blob; name: string } | null>(null);
   const [codeCopied, setCodeCopied] = useState(false);
 
-  const { devices } = useDevicePresence(
-    myDeviceCode,
-    myDeviceName || 'Unknown Device'
-  );
+
 
   const { 
     webrtc, 
@@ -53,6 +48,15 @@ const Index = () => {
         toast({
           title: 'File Received!',
           description: `${fileName} is ready to download`,
+        });
+      });
+
+      webrtc.onTransferCancelled(() => {
+        setTransferProgress(null);
+        toast({
+          title: 'Transfer Cancelled',
+          description: 'File transfer was cancelled',
+          variant: 'destructive',
         });
       });
     }
@@ -102,6 +106,12 @@ const Index = () => {
       }
     }
     setTransferProgress(null);
+  };
+
+  const handleCancelTransfer = () => {
+    if (webrtc) {
+      webrtc.cancelCurrentTransfer();
+    }
   };
 
   const handleDownload = () => {
@@ -176,7 +186,7 @@ const Index = () => {
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Panel - Devices */}
+          {/* Left Panel - Connection */}
           <div className="lg:col-span-1 space-y-4">
             <div className="glass-card rounded-2xl p-6 space-y-4">
               <div>
@@ -207,27 +217,6 @@ const Index = () => {
                 <Link2 className="w-4 h-4 mr-2" />
                 Connect by Code
               </Button>
-            </div>
-
-            <div className="glass-card rounded-2xl p-6 space-y-4">
-              <h2 className="text-xl font-semibold">Online Devices</h2>
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {devices.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No devices online
-                  </p>
-                ) : (
-                  devices.map((device) => (
-                    <DeviceCard
-                      key={device.id}
-                      deviceName={device.device_name}
-                      deviceCode={device.device_code}
-                      onConnect={() => connectToDevice(device.device_code)}
-                      isConnected={connectedTo === device.device_code}
-                    />
-                  ))
-                )}
-              </div>
             </div>
           </div>
 
@@ -279,6 +268,7 @@ const Index = () => {
                   <TransferProgress
                     progress={transferProgress}
                     isReceiving={false}
+                    onCancel={handleCancelTransfer}
                   />
                 )}
 
