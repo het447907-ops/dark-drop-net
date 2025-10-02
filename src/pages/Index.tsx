@@ -28,13 +28,14 @@ const Index = () => {
   const { 
     webrtc, 
     connectedTo, 
+    connectedDeviceName,
     connectionState,
     pendingConnection,
     connectToDevice, 
     acceptConnection,
     rejectConnection,
     disconnect 
-  } = useWebRTCSignaling(myDeviceCode);
+  } = useWebRTCSignaling(myDeviceCode, myDeviceName);
 
   useEffect(() => {
     if (webrtc) {
@@ -229,18 +230,26 @@ const Index = () => {
                   <div className="flex items-center gap-2">
                     {connectionState === 'connected' ? (
                       <Wifi className="w-4 h-4 text-green-500" />
+                    ) : connectionState === 'connecting' ? (
+                      <Wifi className="w-4 h-4 text-yellow-500 animate-pulse" />
                     ) : (
                       <WifiOff className="w-4 h-4 text-muted" />
                     )}
                     <div
                       className={`w-3 h-3 rounded-full ${
-                        connectionState === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-muted'
+                        connectionState === 'connected' 
+                          ? 'bg-green-500 animate-pulse' 
+                          : connectionState === 'connecting'
+                          ? 'bg-yellow-500 animate-pulse'
+                          : 'bg-muted'
                       }`}
                     />
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {connectedTo
-                      ? `Connected to ${connectedTo} (${connectionState})`
+                    {connectedTo && connectedDeviceName
+                      ? connectionState === 'connected'
+                        ? `Connected to ${connectedDeviceName}`
+                        : `Connecting to ${connectedDeviceName}...`
                       : connectionState === 'connecting' 
                       ? 'Connecting...'
                       : 'Not connected'}
@@ -315,6 +324,7 @@ const Index = () => {
       <ConnectionRequestDialog
         open={!!pendingConnection}
         deviceCode={pendingConnection?.from || ''}
+        deviceName={pendingConnection?.deviceName}
         onAccept={acceptConnection}
         onReject={rejectConnection}
       />

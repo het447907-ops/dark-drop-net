@@ -17,6 +17,7 @@ export class WebRTCFileTransfer {
   private onIceCandidateCallback?: (candidate: RTCIceCandidate) => void;
   private onConnectionStateChangeCallback?: (state: string) => void;
   private onTransferCancelledCallback?: () => void;
+  private onDisconnectedCallback?: () => void;
   private receivedChunks: ArrayBuffer[] = [];
   private receivedFileName: string = '';
   private receivedFileSize: number = 0;
@@ -56,6 +57,13 @@ export class WebRTCFileTransfer {
       console.log('Connection state:', state);
       if (this.onConnectionStateChangeCallback) {
         this.onConnectionStateChangeCallback(state);
+      }
+      
+      // Handle disconnection
+      if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+        if (this.onDisconnectedCallback) {
+          this.onDisconnectedCallback();
+        }
       }
     };
   }
@@ -142,6 +150,12 @@ export class WebRTCFileTransfer {
         // Transfer cancelled by sender
         console.log('Transfer cancelled by sender');
         this.handleTransferCancellation();
+      } else if (message.type === 'DISCONNECT') {
+        // Peer is disconnecting
+        console.log('Peer is disconnecting');
+        if (this.onDisconnectedCallback) {
+          this.onDisconnectedCallback();
+        }
       }
     } else if (data instanceof ArrayBuffer) {
       // Received file chunk
@@ -191,6 +205,10 @@ export class WebRTCFileTransfer {
       throw new Error(`Data channel not ready. Current state: ${this.dataChannel.readyState}`);
     }
 
+    if (!this.isConnected()) {
+      throw new Error('WebRTC connection is not established');
+    }
+
     if (!this.peerConnection || this.peerConnection.connectionState !== 'connected') {
       throw new Error(`Peer connection not established. Current state: ${this.peerConnection?.connectionState}`);
     }
@@ -221,8 +239,12 @@ export class WebRTCFileTransfer {
         const chunk = file.slice(offset, offset + CHUNK_SIZE);
         const arrayBuffer = await chunk.arrayBuffer();
         
-        // Wait for buffer to be ready
+        // Wait for buffer to be ready and check connection
         while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 4 && !this.isTransferCancelled) {
+          // Check if connection is still alive
+          if (!this.isConnected()) {
+            throw new Error('Connection lost during transfer');
+          }
           await new Promise(resolve => setTimeout(resolve, 10));
         }
 
@@ -230,7 +252,17 @@ export class WebRTCFileTransfer {
           throw new Error('Transfer cancelled');
         }
 
-        this.dataChannel.send(arrayBuffer);
+        // Double-check connection before sending
+        if (!this.isConnected()) {
+          throw new Error('Connection lost during transfer');
+        }
+
+        try {
+          this.dataChannel.send(arrayBuffer);
+        } catch (sendError) {
+          console.error('Error sending chunk:', sendError);
+          throw new Error(`Failed to send chunk: ${sendError}`);
+        }
         offset += CHUNK_SIZE;
 
         const elapsedTime = (Date.now() - this.startTime) / 1000;
@@ -328,9 +360,22 @@ export class WebRTCFileTransfer {
     return this.peerConnection?.connectionState || 'unknown';
   }
 
+  onDisconnected(callback: () => void) {
+    this.onDisconnectedCallback = callback;
+  }
+
   disconnect() {
     // Cancel any ongoing transfer
     this.cancelCurrentTransfer();
+    
+    // Send disconnect message to peer if connected
+    if (this.dataChannel && this.dataChannel.readyState === 'open') {
+      try {
+        this.dataChannel.send(JSON.stringify({ type: 'DISCONNECT' }));
+      } catch (error) {
+        console.error('Error sending disconnect message:', error);
+      }
+    }
     
     this.dataChannel?.close();
     this.peerConnection?.close();

@@ -12,6 +12,7 @@ import {
 interface ConnectionRequestDialogProps {
   open: boolean;
   deviceCode: string;
+  deviceName?: string;
   onAccept: () => void;
   onReject: () => void;
 }
@@ -19,16 +20,19 @@ interface ConnectionRequestDialogProps {
 export const ConnectionRequestDialog = ({
   open,
   deviceCode,
+  deviceName,
   onAccept,
   onReject,
 }: ConnectionRequestDialogProps) => {
+  const displayName = deviceName || deviceCode;
+  
   return (
     <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && onReject()}>
       <AlertDialogContent className="glass-card border-border">
         <AlertDialogHeader>
           <AlertDialogTitle>Connection Request</AlertDialogTitle>
           <AlertDialogDescription>
-            Device <span className="font-semibold text-primary">{deviceCode}</span> wants to connect with you. 
+            <span className="font-semibold text-primary">{displayName}</span> wants to connect with you. 
             Do you want to accept this connection?
           </AlertDialogDescription>
         </AlertDialogHeader>

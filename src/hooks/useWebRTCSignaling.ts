@@ -3,12 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { WebRTCFileTransfer } from '@/lib/webrtc';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-export const useWebRTCSignaling = (myDeviceCode: string) => {
+export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) => {
   const [webrtc, setWebrtc] = useState<WebRTCFileTransfer | null>(null);
   const [signalingChannel, setSignalingChannel] = useState<RealtimeChannel | null>(null);
   const [connectedTo, setConnectedTo] = useState<string | null>(null);
+  const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<string>('disconnected');
-  const [pendingConnection, setPendingConnection] = useState<{ from: string; offer: any } | null>(null);
+  const [pendingConnection, setPendingConnection] = useState<{ from: string; offer: any; deviceName?: string } | null>(null);
 
   useEffect(() => {
     const channel = supabase
@@ -23,15 +24,16 @@ export const useWebRTCSignaling = (myDeviceCode: string) => {
         },
           async (payload) => {
           console.log('Received signal:', payload);
-          const { signal_type, signal_data, from_code } = payload.new as any;
+          const { signal_type, signal_data, from_code, device_name } = payload.new as any;
 
           if (signal_type === 'offer') {
-            // Store pending connection request
-            setPendingConnection({ from: from_code, offer: signal_data });
+            // Store pending connection request with device name
+            setPendingConnection({ from: from_code, offer: signal_data, deviceName: device_name });
           } else if (signal_type === 'answer') {
             if (webrtc) {
               await webrtc.handleAnswer(signal_data);
               setConnectedTo(from_code);
+              setConnectedDeviceName(device_name || from_code);
             }
           } else if (signal_type === 'ice-candidate') {
             if (webrtc) {
@@ -57,6 +59,7 @@ export const useWebRTCSignaling = (myDeviceCode: string) => {
         to_code: toCode,
         signal_type: signalType,
         signal_data: signalData,
+        device_name: myDeviceName,
       });
 
     if (error) {
@@ -75,6 +78,14 @@ export const useWebRTCSignaling = (myDeviceCode: string) => {
     // Setup ICE candidate callback
     newWebrtc.onIceCandidate((candidate) => {
       sendSignal(deviceCode, 'ice-candidate', candidate);
+    });
+
+    // Setup disconnection callback
+    newWebrtc.onDisconnected(() => {
+      setConnectedTo(null);
+      setConnectedDeviceName(null);
+      setConnectionState('disconnected');
+      setWebrtc(null);
     });
 
     setWebrtc(newWebrtc);
@@ -100,12 +111,21 @@ export const useWebRTCSignaling = (myDeviceCode: string) => {
       sendSignal(pendingConnection.from, 'ice-candidate', candidate);
     });
 
+    // Setup disconnection callback
+    newWebrtc.onDisconnected(() => {
+      setConnectedTo(null);
+      setConnectedDeviceName(null);
+      setConnectionState('disconnected');
+      setWebrtc(null);
+    });
+
     setWebrtc(newWebrtc);
 
     const answer = await newWebrtc.handleOffer(pendingConnection.offer);
     if (answer) {
       await sendSignal(pendingConnection.from, 'answer', answer);
       setConnectedTo(pendingConnection.from);
+      setConnectedDeviceName(pendingConnection.deviceName || pendingConnection.from);
     }
 
     setPendingConnection(null);
@@ -119,12 +139,14 @@ export const useWebRTCSignaling = (myDeviceCode: string) => {
     webrtc?.disconnect();
     setWebrtc(null);
     setConnectedTo(null);
+    setConnectedDeviceName(null);
     setConnectionState('disconnected');
   };
 
   return {
     webrtc,
     connectedTo,
+    connectedDeviceName,
     connectionState,
     pendingConnection,
     connectToDevice,
