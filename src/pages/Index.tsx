@@ -6,10 +6,11 @@ import { FileUploadZone } from '@/components/FileUploadZone';
 import { TransferProgress } from '@/components/TransferProgress';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { DownloadPrompt } from '@/components/DownloadPrompt';
+import { ConnectionRequestDialog } from '@/components/ConnectionRequestDialog';
 import { useDevicePresence } from '@/hooks/useDevicePresence';
 import { useWebRTCSignaling } from '@/hooks/useWebRTCSignaling';
 import { FileTransferProgress } from '@/lib/webrtc';
-import { Monitor, Link2, Copy, Check } from 'lucide-react';
+import { Monitor, Link2, Copy, Check, Wifi, WifiOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -29,7 +30,16 @@ const Index = () => {
     myDeviceName || 'Unknown Device'
   );
 
-  const { webrtc, connectedTo, connectToDevice, disconnect } = useWebRTCSignaling(myDeviceCode);
+  const { 
+    webrtc, 
+    connectedTo, 
+    connectionState,
+    pendingConnection,
+    connectToDevice, 
+    acceptConnection,
+    rejectConnection,
+    disconnect 
+  } = useWebRTCSignaling(myDeviceCode);
 
   useEffect(() => {
     if (webrtc) {
@@ -54,7 +64,7 @@ const Index = () => {
     }
   };
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = async (files: File[]) => {
     if (!webrtc || !connectedTo) {
       toast({
         title: 'Not Connected',
@@ -64,21 +74,34 @@ const Index = () => {
       return;
     }
 
-    try {
-      await webrtc.sendFile(file);
+    if (!webrtc.isConnected()) {
       toast({
-        title: 'File Sent!',
-        description: `${file.name} has been transferred successfully`,
-      });
-      setTransferProgress(null);
-    } catch (error) {
-      console.error('Error sending file:', error);
-      toast({
-        title: 'Transfer Failed',
-        description: 'There was an error transferring the file',
+        title: 'Connection Not Ready',
+        description: `Connection state: ${webrtc.getConnectionState()}. Please wait for connection to establish.`,
         variant: 'destructive',
       });
+      return;
     }
+
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      try {
+        await webrtc.sendFile(file);
+        toast({
+          title: 'File Sent!',
+          description: `${file.name} has been transferred successfully`,
+        });
+      } catch (error) {
+        console.error('Error sending file:', error);
+        toast({
+          title: 'Transfer Failed',
+          description: error instanceof Error ? error.message : 'There was an error transferring the file',
+          variant: 'destructive',
+        });
+      }
+    }
+    setTransferProgress(null);
   };
 
   const handleDownload = () => {
@@ -214,14 +237,23 @@ const Index = () => {
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-2">File Transfer</h2>
                 <div className="flex items-center gap-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      connectedTo ? 'bg-green-500 animate-pulse' : 'bg-muted'
-                    }`}
-                  />
+                  <div className="flex items-center gap-2">
+                    {connectionState === 'connected' ? (
+                      <Wifi className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <WifiOff className="w-4 h-4 text-muted" />
+                    )}
+                    <div
+                      className={`w-3 h-3 rounded-full ${
+                        connectionState === 'connected' ? 'bg-green-500 animate-pulse' : 'bg-muted'
+                      }`}
+                    />
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {connectedTo
-                      ? `Connected to device ${connectedTo}`
+                      ? `Connected to ${connectedTo} (${connectionState})`
+                      : connectionState === 'connecting' 
+                      ? 'Connecting...'
                       : 'Not connected'}
                   </p>
                   {connectedTo && (
@@ -240,7 +272,7 @@ const Index = () => {
               <div className="space-y-4">
                 <FileUploadZone
                   onFileSelect={handleFileSelect}
-                  disabled={!connectedTo}
+                  disabled={connectionState !== 'connected'}
                 />
 
                 {transferProgress && (
@@ -288,6 +320,13 @@ const Index = () => {
         open={connectDialogOpen}
         onOpenChange={setConnectDialogOpen}
         onConnect={connectToDevice}
+      />
+
+      <ConnectionRequestDialog
+        open={!!pendingConnection}
+        deviceCode={pendingConnection?.from || ''}
+        onAccept={acceptConnection}
+        onReject={rejectConnection}
       />
     </div>
   );

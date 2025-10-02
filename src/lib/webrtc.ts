@@ -14,10 +14,13 @@ export class WebRTCFileTransfer {
   private dataChannel: RTCDataChannel | null = null;
   private onProgressCallback?: (progress: FileTransferProgress) => void;
   private onFileReceivedCallback?: (file: Blob, fileName: string) => void;
+  private onIceCandidateCallback?: (candidate: RTCIceCandidate) => void;
+  private onConnectionStateChangeCallback?: (state: string) => void;
   private receivedChunks: ArrayBuffer[] = [];
   private receivedFileName: string = '';
   private receivedFileSize: number = 0;
   private startTime: number = 0;
+  private localIceCandidates: RTCIceCandidate[] = [];
 
   constructor() {
     this.initializePeerConnection();
@@ -38,11 +41,19 @@ export class WebRTCFileTransfer {
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         console.log('New ICE candidate:', event.candidate);
+        this.localIceCandidates.push(event.candidate);
+        if (this.onIceCandidateCallback) {
+          this.onIceCandidateCallback(event.candidate);
+        }
       }
     };
 
     this.peerConnection.onconnectionstatechange = () => {
-      console.log('Connection state:', this.peerConnection?.connectionState);
+      const state = this.peerConnection?.connectionState || 'unknown';
+      console.log('Connection state:', state);
+      if (this.onConnectionStateChangeCallback) {
+        this.onConnectionStateChangeCallback(state);
+      }
     };
   }
 
@@ -158,8 +169,16 @@ export class WebRTCFileTransfer {
   }
 
   async sendFile(file: File) {
-    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-      throw new Error('Data channel not ready');
+    if (!this.dataChannel) {
+      throw new Error('Data channel not initialized');
+    }
+    
+    if (this.dataChannel.readyState !== 'open') {
+      throw new Error(`Data channel not ready. Current state: ${this.dataChannel.readyState}`);
+    }
+
+    if (!this.peerConnection || this.peerConnection.connectionState !== 'connected') {
+      throw new Error(`Peer connection not established. Current state: ${this.peerConnection?.connectionState}`);
     }
 
     // Send file metadata first
@@ -214,8 +233,25 @@ export class WebRTCFileTransfer {
     this.onFileReceivedCallback = callback;
   }
 
+  onIceCandidate(callback: (candidate: RTCIceCandidate) => void) {
+    this.onIceCandidateCallback = callback;
+  }
+
+  onConnectionStateChange(callback: (state: string) => void) {
+    this.onConnectionStateChangeCallback = callback;
+  }
+
   getIceCandidates(): RTCIceCandidate[] {
-    return [];
+    return this.localIceCandidates;
+  }
+
+  isConnected(): boolean {
+    return this.peerConnection?.connectionState === 'connected' && 
+           this.dataChannel?.readyState === 'open';
+  }
+
+  getConnectionState(): string {
+    return this.peerConnection?.connectionState || 'unknown';
   }
 
   disconnect() {
