@@ -39,6 +39,15 @@ export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) =
             if (webrtc) {
               await webrtc.handleIceCandidate(signal_data);
             }
+          } else if (signal_type === 'disconnect') {
+            // Remote device disconnected, clean up local connection
+            if (webrtc) {
+              webrtc.disconnect();
+            }
+            setWebrtc(null);
+            setConnectedTo(null);
+            setConnectedDeviceName(null);
+            setConnectionState('disconnected');
           }
         }
       )
@@ -136,6 +145,10 @@ export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) =
   };
 
   const disconnect = () => {
+    // Notify the other device that we're disconnecting
+    if (connectedTo) {
+      sendSignal(connectedTo, 'disconnect', {});
+    }
     webrtc?.disconnect();
     setWebrtc(null);
     setConnectedTo(null);

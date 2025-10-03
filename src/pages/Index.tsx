@@ -79,10 +79,22 @@ const Index = () => {
       return;
     }
 
-    if (!webrtc.isConnected()) {
+    // Wait for connection to be fully established
+    if (connectionState !== 'connected') {
       toast({
         title: 'Connection Not Ready',
-        description: `Connection state: ${webrtc.getConnectionState()}. Please wait for connection to establish.`,
+        description: connectionState === 'connecting' 
+          ? 'Please wait for the connection to establish...' 
+          : `Connection state: ${connectionState}. Please try reconnecting.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!webrtc.isConnected()) {
+      toast({
+        title: 'Data Channel Not Ready',
+        description: 'The secure channel is still establishing. Please wait a moment and try again.',
         variant: 'destructive',
       });
       return;
