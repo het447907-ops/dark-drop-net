@@ -8,45 +8,48 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Dark theme colors - Shadow Transfer */
-    --background: 240 10% 6%;
-    --foreground: 240 5% 96%;
+    /* Dark theme with blue glassmorphic design */
+    --background: 220 25% 8%;
+    --foreground: 220 10% 98%;
     
-    --card: 240 8% 10%;
-    --card-foreground: 240 5% 96%;
+    --card: 220 20% 12%;
+    --card-foreground: 220 10% 98%;
     
-    --popover: 240 8% 12%;
-    --popover-foreground: 240 5% 96%;
+    --popover: 220 20% 14%;
+    --popover-foreground: 220 10% 98%;
     
-    /* Purple/Blue gradient primary */
-    --primary: 270 80% 60%;
+    /* Blue gradient primary */
+    --primary: 210 100% 60%;
+    --primary-glow: 210 100% 70%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 240 6% 20%;
-    --secondary-foreground: 240 5% 96%;
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 220 10% 98%;
     
-    --muted: 240 6% 15%;
-    --muted-foreground: 240 5% 65%;
+    --muted: 220 15% 16%;
+    --muted-foreground: 220 10% 70%;
     
-    --accent: 270 80% 60%;
+    --accent: 200 100% 55%;
     --accent-foreground: 0 0% 100%;
     
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
     
-    --border: 240 6% 20%;
-    --input: 240 6% 20%;
-    --ring: 270 80% 60%;
+    --border: 220 20% 25%;
+    --input: 220 20% 20%;
+    --ring: 210 100% 60%;
     
     --radius: 0.75rem;
     
-    /* Glassy effects */
-    --glass-background: 240 8% 12% / 0.6;
-    --glass-border: 240 20% 80% / 0.1;
+    /* Enhanced glassy effects */
+    --glass-background: 220 20% 12% / 0.5;
+    --glass-border: 210 80% 70% / 0.15;
+    --glass-hover: 220 20% 15% / 0.7;
     
-    /* Glow effects */
-    --glow-primary: 270 80% 60% / 0.5;
-    --glow-secondary: 200 80% 60% / 0.3;
+    /* Enhanced glow effects */
+    --glow-primary: 210 100% 60% / 0.4;
+    --glow-secondary: 200 100% 55% / 0.3;
+    --glow-accent: 190 100% 50% / 0.2;
   }
 }
 
@@ -57,24 +60,117 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground antialiased;
-    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(240 10% 4%) 100%);
+    background: 
+      radial-gradient(ellipse at top, hsl(210 100% 15% / 0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, hsl(200 100% 12% / 0.2) 0%, transparent 50%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(220 30% 6%) 100%);
     min-height: 100vh;
   }
 }
 
 @layer utilities {
   .glass-card {
-    background: rgba(18, 18, 26, 0.6);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(
+      135deg,
+      rgba(30, 58, 95, 0.4) 0%,
+      rgba(20, 40, 70, 0.3) 100%
+    );
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(100, 200, 255, 0.15);
+    box-shadow: 
+      0 8px 32px 0 rgba(0, 100, 255, 0.1),
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+  }
+
+  .glass-card:hover {
+    background: linear-gradient(
+      135deg,
+      rgba(35, 68, 110, 0.5) 0%,
+      rgba(25, 50, 85, 0.4) 100%
+    );
+    border-color: rgba(120, 220, 255, 0.25);
+    box-shadow: 
+      0 12px 48px 0 rgba(0, 120, 255, 0.15),
+      inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
   }
   
   .glow-border {
-    box-shadow: 0 0 20px hsla(var(--glow-primary)), 
-                inset 0 0 20px hsla(var(--glow-secondary));
+    box-shadow: 
+      0 0 30px hsla(var(--glow-primary)),
+      0 0 60px hsla(var(--glow-secondary)),
+      inset 0 0 20px hsla(var(--glow-accent));
   }
   
   .text-glow {
-    text-shadow: 0 0 20px hsla(var(--glow-primary));
+    text-shadow: 
+      0 0 30px hsla(var(--glow-primary)),
+      0 0 60px hsla(var(--glow-secondary));
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--accent)) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px hsla(var(--glow-primary));
+    }
+    50% {
+      box-shadow: 0 0 40px hsla(var(--glow-primary)),
+                  0 0 60px hsla(var(--glow-secondary));
+    }
+  }
+
+  .slide-in-up {
+    animation: slide-in-up 0.4s ease-out;
+  }
+
+  @keyframes slide-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .scale-in {
+    animation: scale-in 0.3s ease-out;
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 }

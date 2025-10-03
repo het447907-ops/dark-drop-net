@@ -154,9 +154,9 @@ const Index = () => {
   if (!nameSet) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="glass-card rounded-2xl p-8 max-w-md w-full space-y-6">
+        <div className="glass-card rounded-2xl p-8 max-w-md w-full space-y-6 scale-in">
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-glow">Shadow Transfer</h1>
+            <h1 className="text-4xl font-bold text-glow">Shadow Transfer</h1>
             <p className="text-muted-foreground">Secure P2P File Transfer</p>
           </div>
           <div className="space-y-4">
@@ -167,10 +167,14 @@ const Index = () => {
                 value={myDeviceName}
                 onChange={(e) => setMyDeviceName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSetName()}
-                className="text-center"
+                className="text-center glass-card border-primary/30 focus:border-primary/50 transition-all"
               />
             </div>
-            <Button onClick={handleSetName} className="w-full" size="lg">
+            <Button 
+              onClick={handleSetName} 
+              className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/50 transition-all" 
+              size="lg"
+            >
               Get Started
             </Button>
           </div>
@@ -180,18 +184,18 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-4 fade-in">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="glass-card rounded-2xl p-6">
+        <div className="glass-card rounded-2xl p-6 slide-in-up">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-glow">Shadow Transfer</h1>
+              <h1 className="text-4xl font-bold text-glow">Shadow Transfer</h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Secure peer-to-peer file sharing
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 glass-card px-4 py-2 rounded-lg">
               <Monitor className="w-5 h-5 text-primary" />
               <span className="text-sm font-medium">{myDeviceName}</span>
             </div>
@@ -201,10 +205,10 @@ const Index = () => {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Left Panel - Connection */}
           <div className="lg:col-span-1 space-y-4">
-            <div className="glass-card rounded-2xl p-6 space-y-4">
+            <div className="glass-card rounded-2xl p-6 space-y-4 slide-in-right">
               <div>
                 <h2 className="text-xl font-semibold mb-2">My Device Code</h2>
-                <div className="glass-card rounded-xl p-4 flex items-center justify-between">
+                <div className="glass-card rounded-xl p-4 flex items-center justify-between pulse-glow">
                   <span className="text-3xl font-bold tracking-widest text-primary">
                     {myDeviceCode}
                   </span>
@@ -212,9 +216,10 @@ const Index = () => {
                     variant="ghost"
                     size="icon"
                     onClick={copyCode}
+                    className="hover:bg-primary/10 transition-all"
                   >
                     {codeCopied ? (
-                      <Check className="w-5 h-5 text-green-500" />
+                      <Check className="w-5 h-5 text-green-500 animate-scale-in" />
                     ) : (
                       <Copy className="w-5 h-5" />
                     )}
@@ -225,7 +230,7 @@ const Index = () => {
               <Button
                 onClick={() => setConnectDialogOpen(true)}
                 variant="outline"
-                className="w-full"
+                className="w-full border-primary/30 hover:border-primary/50 hover:bg-primary/10 transition-all"
               >
                 <Link2 className="w-4 h-4 mr-2" />
                 Connect by Code
@@ -235,24 +240,24 @@ const Index = () => {
 
           {/* Right Panel - Transfer */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-2xl p-6 scale-in">
               <div className="mb-6">
                 <h2 className="text-xl font-semibold mb-2">File Transfer</h2>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2">
                     {connectionState === 'connected' ? (
-                      <Wifi className="w-4 h-4 text-green-500" />
+                      <Wifi className="w-4 h-4 text-green-500 animate-pulse" />
                     ) : connectionState === 'connecting' ? (
                       <Wifi className="w-4 h-4 text-yellow-500 animate-pulse" />
                     ) : (
                       <WifiOff className="w-4 h-4 text-muted" />
                     )}
                     <div
-                      className={`w-3 h-3 rounded-full ${
+                      className={`w-3 h-3 rounded-full transition-all ${
                         connectionState === 'connected' 
-                          ? 'bg-green-500 animate-pulse' 
+                          ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
                           : connectionState === 'connecting'
-                          ? 'bg-yellow-500 animate-pulse'
+                          ? 'bg-yellow-500 animate-pulse shadow-lg shadow-yellow-500/50'
                           : 'bg-muted'
                       }`}
                     />
@@ -271,7 +276,7 @@ const Index = () => {
                       variant="ghost"
                       size="sm"
                       onClick={disconnect}
-                      className="ml-auto"
+                      className="ml-auto hover:bg-destructive/10 hover:text-destructive transition-all"
                     >
                       Disconnect
                     </Button>
@@ -302,24 +307,27 @@ const Index = () => {
               </div>
             </div>
 
-            <div className="glass-card rounded-2xl p-6">
-              <h3 className="text-lg font-semibold mb-3">How it works</h3>
-              <ol className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">1.</span>
-                  Share your device code or connect to another device
+            <div className="glass-card rounded-2xl p-6 slide-in-up">
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                <div className="w-1 h-6 bg-gradient-to-b from-primary to-accent rounded-full" />
+                How it works
+              </h3>
+              <ol className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
+                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">1</span>
+                  <span>Share your device code or connect to another device</span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">2.</span>
-                  Wait for the connection to establish
+                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
+                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">2</span>
+                  <span>Wait for the connection to establish</span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">3.</span>
-                  Upload your file - it transfers directly between devices
+                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
+                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">3</span>
+                  <span>Upload your file - it transfers directly between devices</span>
                 </li>
-                <li className="flex gap-2">
-                  <span className="font-semibold text-primary">4.</span>
-                  Files auto-download on the receiver's end
+                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
+                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">4</span>
+                  <span>Files auto-download on the receiver's end</span>
                 </li>
               </ol>
             </div>
