@@ -41,6 +41,7 @@ export type Database = {
       signaling: {
         Row: {
           created_at: string
+          device_name: string | null
           from_code: string
           id: string
           signal_data: Json
@@ -49,6 +50,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          device_name?: string | null
           from_code: string
           id?: string
           signal_data: Json
@@ -57,6 +59,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          device_name?: string | null
           from_code?: string
           id?: string
           signal_data?: Json
