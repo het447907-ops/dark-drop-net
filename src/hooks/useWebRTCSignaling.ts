@@ -3,13 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { WebRTCFileTransfer } from '@/lib/webrtc';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+interface SignalingPayload {
+  signal_type: string;
+  signal_data: RTCSessionDescriptionInit | RTCIceCandidateInit | Record<string, unknown>;
+  from_code: string;
+  device_name?: string;
+}
+
 export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) => {
   const [webrtc, setWebrtc] = useState<WebRTCFileTransfer | null>(null);
   const [signalingChannel, setSignalingChannel] = useState<RealtimeChannel | null>(null);
   const [connectedTo, setConnectedTo] = useState<string | null>(null);
   const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<string>('disconnected');
-  const [pendingConnection, setPendingConnection] = useState<{ from: string; offer: any; deviceName?: string } | null>(null);
+  const [pendingConnection, setPendingConnection] = useState<{ from: string; offer: RTCSessionDescriptionInit; deviceName?: string } | null>(null);
 
   useEffect(() => {
     const channel = supabase
@@ -24,20 +31,20 @@ export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) =
         },
           async (payload) => {
           console.log('Received signal:', payload);
-          const { signal_type, signal_data, from_code, device_name } = payload.new as any;
+          const { signal_type, signal_data, from_code, device_name } = payload.new as SignalingPayload;
 
           if (signal_type === 'offer') {
             // Store pending connection request with device name
-            setPendingConnection({ from: from_code, offer: signal_data, deviceName: device_name });
+            setPendingConnection({ from: from_code, offer: signal_data as RTCSessionDescriptionInit, deviceName: device_name });
           } else if (signal_type === 'answer') {
             if (webrtc) {
-              await webrtc.handleAnswer(signal_data);
+              await webrtc.handleAnswer(signal_data as RTCSessionDescriptionInit);
               setConnectedTo(from_code);
               setConnectedDeviceName(device_name || from_code);
             }
           } else if (signal_type === 'ice-candidate') {
             if (webrtc) {
-              await webrtc.handleIceCandidate(signal_data);
+              await webrtc.handleIceCandidate(signal_data as RTCIceCandidateInit);
             }
           } else if (signal_type === 'disconnect') {
             // Remote device disconnected, clean up local connection
@@ -60,7 +67,7 @@ export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) =
     };
   }, [myDeviceCode, webrtc]);
 
-  const sendSignal = async (toCode: string, signalType: string, signalData: any) => {
+  const sendSignal = async (toCode: string, signalType: string, signalData: RTCSessionDescriptionInit | RTCIceCandidateInit | Record<string, unknown>) => {
     const { error } = await supabase
       .from('signaling')
       .insert({

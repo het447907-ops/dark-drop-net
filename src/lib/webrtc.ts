@@ -25,6 +25,7 @@ export class WebRTCFileTransfer {
   private localIceCandidates: RTCIceCandidate[] = [];
   private isTransferCancelled: boolean = false;
   private currentTransferAbortController: AbortController | null = null;
+  private connectionTimeout: NodeJS.Timeout | null = null;
 
   constructor() {
     this.initializePeerConnection();
@@ -65,8 +66,18 @@ export class WebRTCFileTransfer {
         this.onConnectionStateChangeCallback(state);
       }
       
+      // Clear timeout when connected
+      if (state === 'connected' && this.connectionTimeout) {
+        clearTimeout(this.connectionTimeout);
+        this.connectionTimeout = null;
+      }
+      
       // Handle disconnection
       if (state === 'disconnected' || state === 'failed' || state === 'closed') {
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
         if (this.onDisconnectedCallback) {
           this.onDisconnectedCallback();
         }
@@ -77,45 +88,66 @@ export class WebRTCFileTransfer {
   async createOffer(): Promise<RTCSessionDescriptionInit | null> {
     if (!this.peerConnection) return null;
 
-    // Create data channel with optimized settings
-    this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
-      ordered: true,
-      maxRetransmits: 3,
-    });
-    
-    this.setupDataChannel();
+    try {
+      // Create data channel with optimized settings
+      this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
+        ordered: true,
+        maxRetransmits: 3,
+      });
+      
+      this.setupDataChannel();
 
-    const offer = await this.peerConnection.createOffer({
-      iceRestart: false,
-    });
-    await this.peerConnection.setLocalDescription(offer);
-    return offer;
+      const offer = await this.peerConnection.createOffer({
+        iceRestart: false,
+      });
+      await this.peerConnection.setLocalDescription(offer);
+      return offer;
+    } catch (error) {
+      console.error('Failed to create offer:', error);
+      return null;
+    }
   }
 
   async handleOffer(offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit | null> {
     if (!this.peerConnection) return null;
 
-    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    
-    // Set up data channel when received
-    this.peerConnection.ondatachannel = (event) => {
-      this.dataChannel = event.channel;
-      this.setupDataChannel();
-    };
+    try {
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      
+      // Set up data channel when received
+      this.peerConnection.ondatachannel = (event) => {
+        this.dataChannel = event.channel;
+        this.setupDataChannel();
+      };
 
-    const answer = await this.peerConnection.createAnswer();
-    await this.peerConnection.setLocalDescription(answer);
-    return answer;
+      const answer = await this.peerConnection.createAnswer();
+      await this.peerConnection.setLocalDescription(answer);
+      return answer;
+    } catch (error) {
+      console.error('Failed to handle offer:', error);
+      return null;
+    }
   }
 
   async handleAnswer(answer: RTCSessionDescriptionInit) {
     if (!this.peerConnection) return;
-    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    
+    try {
+      await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    } catch (error) {
+      console.error('Failed to handle answer:', error);
+    }
   }
 
   async handleIceCandidate(candidate: RTCIceCandidateInit) {
     if (!this.peerConnection) return;
-    await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    
+    try {
+      await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      console.error('Failed to add ICE candidate:', error);
+      // Continue without throwing - this is not a fatal error
+    }
   }
 
   private setupDataChannel() {
@@ -138,7 +170,7 @@ export class WebRTCFileTransfer {
     };
   }
 
-  private handleDataChannelMessage(data: any) {
+  private handleDataChannelMessage(data: string | ArrayBuffer) {
     if (typeof data === 'string') {
       const message = JSON.parse(data);
       
@@ -373,9 +405,30 @@ export class WebRTCFileTransfer {
     this.onDisconnectedCallback = callback;
   }
 
+  setConnectionTimeout(timeoutMs: number = 30000) {
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+    }
+    
+    this.connectionTimeout = setTimeout(() => {
+      console.warn('WebRTC connection timeout');
+      if (this.peerConnection?.connectionState !== 'connected') {
+        if (this.onDisconnectedCallback) {
+          this.onDisconnectedCallback();
+        }
+      }
+    }, timeoutMs);
+  }
+
   disconnect() {
     // Cancel any ongoing transfer
     this.cancelCurrentTransfer();
+    
+    // Clear connection timeout
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
     
     // Send disconnect message to peer if connected
     if (this.dataChannel && this.dataChannel.readyState === 'open') {
