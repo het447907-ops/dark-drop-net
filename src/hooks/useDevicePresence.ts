@@ -14,7 +14,6 @@ export const useDevicePresence = (myDeviceCode: string, myDeviceName: string) =>
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    let heartbeatInterval: NodeJS.Timeout;
 
     const registerDevice = async () => {
       // Register or update device
@@ -52,7 +51,7 @@ export const useDevicePresence = (myDeviceCode: string, myDeviceName: string) =>
     fetchDevices();
 
     // Set up heartbeat to keep device online
-    heartbeatInterval = setInterval(() => {
+    const heartbeatInterval = setInterval(() => {
       registerDevice();
     }, 10000); // Update every 10 seconds
 

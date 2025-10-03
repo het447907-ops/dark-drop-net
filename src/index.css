@@ -173,4 +173,39 @@ All colors MUST be HSL.
       transform: scale(1);
     }
   }
+
+  /* Fix dialog positioning issues on mobile and desktop */
+  [data-radix-dialog-content] {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    max-height: 90vh !important;
+    max-width: min(90vw, 32rem) !important;
+    width: 100% !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+  }
+
+  /* Ensure dialog overlay covers full viewport */
+  [data-radix-dialog-overlay] {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 50 !important;
+  }
+
+  /* Prevent body scroll when dialog is open */
+  body:has([data-radix-dialog-content]) {
+    overflow: hidden;
+  }
+
+  /* Mobile-specific dialog fixes */
+  @media (max-width: 640px) {
+    [data-radix-dialog-content] {
+      max-width: 95vw !important;
+      max-height: 85vh !important;
+      margin: 0 !important;
+      border-radius: 0.75rem !important;
+    }
+  }
 }
