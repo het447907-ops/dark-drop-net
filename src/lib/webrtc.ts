@@ -36,7 +36,13 @@ export class WebRTCFileTransfer {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-      ]
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+      ],
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
     };
 
     this.peerConnection = new RTCPeerConnection(config);
@@ -71,14 +77,17 @@ export class WebRTCFileTransfer {
   async createOffer(): Promise<RTCSessionDescriptionInit | null> {
     if (!this.peerConnection) return null;
 
-    // Create data channel
+    // Create data channel with optimized settings
     this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
       ordered: true,
+      maxRetransmits: 3,
     });
     
     this.setupDataChannel();
 
-    const offer = await this.peerConnection.createOffer();
+    const offer = await this.peerConnection.createOffer({
+      iceRestart: false,
+    });
     await this.peerConnection.setLocalDescription(offer);
     return offer;
   }
