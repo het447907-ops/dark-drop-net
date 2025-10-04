@@ -70,13 +70,13 @@ export const useWebRTCSignaling = (myDeviceCode: string, myDeviceName: string) =
   const sendSignal = async (toCode: string, signalType: string, signalData: RTCSessionDescriptionInit | RTCIceCandidateInit | Record<string, unknown>) => {
     const { error } = await supabase
       .from('signaling')
-      .insert({
+      .insert([{
         from_code: myDeviceCode,
         to_code: toCode,
         signal_type: signalType,
-        signal_data: signalData,
+        signal_data: signalData as any,
         device_name: myDeviceName,
-      });
+      }]);
 
     if (error) {
       console.error('Error sending signal:', error);
