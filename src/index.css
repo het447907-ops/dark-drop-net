@@ -174,9 +174,10 @@ All colors MUST be HSL.
     }
   }
 
-  /* Dialog centering fix - compact size, auto-fit content */
+  /* Dialog centering - prevent scroll issues */
   [data-radix-dialog-content],
-  [role="dialog"] {
+  [role="dialog"],
+  [data-radix-alert-dialog-content] {
     position: fixed !important;
     top: 50% !important;
     left: 50% !important;
@@ -184,26 +185,32 @@ All colors MUST be HSL.
     max-width: min(90vw, 32rem) !important;
     width: auto !important;
     min-width: min(320px, 90vw) !important;
-    max-height: 90vh !important;
+    max-height: 85vh !important;
     height: auto !important;
-    overflow: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     z-index: 100 !important;
     border-radius: 0.75rem !important;
+    margin: 0 !important;
   }
 
-  /* Ensure dialog overlay covers full viewport with high z-index */
-  [data-radix-dialog-overlay] {
+  /* Ensure dialog overlay covers full viewport */
+  [data-radix-dialog-overlay],
+  [data-radix-alert-dialog-overlay] {
     position: fixed !important;
     inset: 0 !important;
     z-index: 99 !important;
     background: rgba(0, 0, 0, 0.8) !important;
   }
 
-  /* Prevent body scroll when dialog is open */
+  /* Prevent body scroll and page shift when dialog opens */
   body:has([data-radix-dialog-content]),
-  body:has([role="dialog"]) {
+  body:has([role="dialog"]),
+  body:has([data-radix-alert-dialog-content]) {
     overflow: hidden !important;
-    touch-action: none !important;
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
   }
 
   /* Mobile-specific dialog sizes */

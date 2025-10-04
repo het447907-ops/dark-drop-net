@@ -1,5 +1,5 @@
 // WebRTC file transfer utilities
-export const CHUNK_SIZE = 256 * 1024; // 256KB chunks for faster transfer
+export const CHUNK_SIZE = 512 * 1024; // 512KB chunks for maximum speed
 
 export interface FileTransferProgress {
   fileName: string;
@@ -7,6 +7,7 @@ export interface FileTransferProgress {
   transferred: number;
   speed: number; // bytes per second
   percentage: number;
+  estimatedTimeRemaining: number; // seconds
 }
 
 export class WebRTCFileTransfer {
@@ -211,6 +212,8 @@ export class WebRTCFileTransfer {
       const elapsedTime = (Date.now() - this.startTime) / 1000; // seconds
       const speed = transferred / elapsedTime;
       const percentage = (transferred / this.receivedFileSize) * 100;
+      const remainingBytes = this.receivedFileSize - transferred;
+      const estimatedTimeRemaining = speed > 0 ? remainingBytes / speed : 0;
 
       if (this.onProgressCallback) {
         this.onProgressCallback({
@@ -219,6 +222,7 @@ export class WebRTCFileTransfer {
           transferred,
           speed,
           percentage,
+          estimatedTimeRemaining,
         });
       }
     }
@@ -281,13 +285,13 @@ export class WebRTCFileTransfer {
         const chunk = file.slice(offset, offset + CHUNK_SIZE);
         const arrayBuffer = await chunk.arrayBuffer();
         
-        // Wait for buffer to be ready - increased buffer size for faster throughput
-        while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 8 && !this.isTransferCancelled) {
+        // Optimized buffering - allow larger buffer for maximum throughput
+        while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 16 && !this.isTransferCancelled) {
           // Check if connection is still alive
           if (!this.isConnected()) {
             throw new Error('Connection lost during transfer');
           }
-          await new Promise(resolve => setTimeout(resolve, 5));
+          await new Promise(resolve => setTimeout(resolve, 1));
         }
 
         if (this.isTransferCancelled) {
@@ -310,6 +314,8 @@ export class WebRTCFileTransfer {
         const elapsedTime = (Date.now() - this.startTime) / 1000;
         const speed = offset / elapsedTime;
         const percentage = (offset / file.size) * 100;
+        const remainingBytes = file.size - offset;
+        const estimatedTimeRemaining = speed > 0 ? remainingBytes / speed : 0;
 
         if (this.onProgressCallback) {
           this.onProgressCallback({
@@ -318,6 +324,7 @@ export class WebRTCFileTransfer {
             transferred: offset,
             speed,
             percentage: Math.min(percentage, 100),
+            estimatedTimeRemaining,
           });
         }
       }

@@ -22,6 +22,15 @@ export const TransferProgress = ({ progress, isReceiving, onCancel }: TransferPr
     return `${mb.toFixed(2)} MB`;
   };
 
+  const formatTime = (seconds: number) => {
+    if (seconds < 60) {
+      return `${Math.ceil(seconds)}s`;
+    }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.ceil(seconds % 60);
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
   return (
     <div className="glass-card rounded-xl p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -55,9 +64,25 @@ export const TransferProgress = ({ progress, isReceiving, onCancel }: TransferPr
 
       <Progress value={progress.percentage} className="h-2" />
 
-      <div className="flex justify-between text-sm text-muted-foreground">
-        <span>{formatSize(progress.transferred)}</span>
-        <span>{formatSize(progress.fileSize)}</span>
+      <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="text-muted-foreground">
+          <div className="flex justify-between">
+            <span>Transferred:</span>
+            <span className="font-medium text-foreground">
+              {formatSize(progress.transferred)} / {formatSize(progress.fileSize)}
+            </span>
+          </div>
+        </div>
+        <div className="text-muted-foreground">
+          <div className="flex justify-between">
+            <span>Time Left:</span>
+            <span className="font-medium text-foreground">
+              {progress.estimatedTimeRemaining > 0 
+                ? formatTime(progress.estimatedTimeRemaining)
+                : 'Calculating...'}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
