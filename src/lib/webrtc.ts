@@ -1,5 +1,5 @@
 // WebRTC file transfer utilities
-export const CHUNK_SIZE = 16 * 1024; // 16KB chunks
+export const CHUNK_SIZE = 256 * 1024; // 256KB chunks for faster transfer
 
 export interface FileTransferProgress {
   fileName: string;
@@ -92,7 +92,8 @@ export class WebRTCFileTransfer {
       // Create data channel with optimized settings
       this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
         ordered: true,
-        maxRetransmits: 3,
+        maxPacketLifeTime: 3000,
+        negotiated: false,
       });
       
       this.setupDataChannel();
@@ -280,13 +281,13 @@ export class WebRTCFileTransfer {
         const chunk = file.slice(offset, offset + CHUNK_SIZE);
         const arrayBuffer = await chunk.arrayBuffer();
         
-        // Wait for buffer to be ready and check connection
-        while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 4 && !this.isTransferCancelled) {
+        // Wait for buffer to be ready - increased buffer size for faster throughput
+        while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 8 && !this.isTransferCancelled) {
           // Check if connection is still alive
           if (!this.isConnected()) {
             throw new Error('Connection lost during transfer');
           }
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise(resolve => setTimeout(resolve, 5));
         }
 
         if (this.isTransferCancelled) {

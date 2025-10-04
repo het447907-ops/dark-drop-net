@@ -174,15 +174,18 @@ All colors MUST be HSL.
     }
   }
 
-  /* Dialog centering fix - avoid transform glitches on mobile */
+  /* Dialog centering fix - compact size, auto-fit content */
   [data-radix-dialog-content],
   [role="dialog"] {
     position: fixed !important;
-    inset: 0 !important;
-    margin: auto !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
     max-width: min(90vw, 32rem) !important;
-    width: 100% !important;
+    width: auto !important;
+    min-width: min(320px, 90vw) !important;
     max-height: 90vh !important;
+    height: auto !important;
     overflow: auto !important;
     z-index: 100 !important;
     border-radius: 0.75rem !important;
