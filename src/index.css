@@ -179,13 +179,12 @@ All colors MUST be HSL.
   [role="dialog"],
   [data-radix-alert-dialog-content] {
     position: fixed !important;
-    inset: 0 !important;
-    margin: auto !important;
-    max-width: min(92vw, 26rem) !important;
-    width: auto !important;
-    min-width: 280px !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    max-width: min(90vw, 24rem) !important;
+    width: 100% !important;
     max-height: 85vh !important;
-    height: auto !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     z-index: 100 !important;
