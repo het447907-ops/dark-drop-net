@@ -27,6 +27,12 @@ export class WebRTCFileTransfer {
   private isTransferCancelled: boolean = false;
   private currentTransferAbortController: AbortController | null = null;
   private connectionTimeout: NodeJS.Timeout | null = null;
+  private pendingRemoteCandidates: RTCIceCandidateInit[] = [];
+  private dataChannelReadyResolver: (() => void) | null = null;
+  private dataChannelReadyPromise: Promise<void> = new Promise((resolve) => {
+    // will be reassigned in setupDataChannel
+    this.dataChannelReadyResolver = resolve;
+  });
 
   constructor() {
     this.initializePeerConnection();
@@ -90,11 +96,9 @@ export class WebRTCFileTransfer {
     if (!this.peerConnection) return null;
 
     try {
-      // Create data channel with optimized settings
+      // Create reliable data channel (reliable + ordered for file integrity)
       this.dataChannel = this.peerConnection.createDataChannel('fileTransfer', {
         ordered: true,
-        maxPacketLifeTime: 3000,
-        negotiated: false,
       });
       
       this.setupDataChannel();
@@ -115,6 +119,9 @@ export class WebRTCFileTransfer {
 
     try {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+      // Flush any ICE candidates that arrived early
+      await this.flushPendingRemoteCandidates();
       
       // Set up data channel when received
       this.peerConnection.ondatachannel = (event) => {
@@ -136,6 +143,7 @@ export class WebRTCFileTransfer {
     
     try {
       await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      await this.flushPendingRemoteCandidates();
     } catch (error) {
       console.error('Failed to handle answer:', error);
     }
@@ -143,8 +151,13 @@ export class WebRTCFileTransfer {
 
   async handleIceCandidate(candidate: RTCIceCandidateInit) {
     if (!this.peerConnection) return;
-    
+
     try {
+      // If remote description not set yet, queue candidate
+      if (!this.peerConnection.remoteDescription) {
+        this.pendingRemoteCandidates.push(candidate);
+        return;
+      }
       await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     } catch (error) {
       console.error('Failed to add ICE candidate:', error);
@@ -157,6 +170,10 @@ export class WebRTCFileTransfer {
 
     this.dataChannel.onopen = () => {
       console.log('Data channel opened');
+      if (this.dataChannelReadyResolver) {
+        this.dataChannelReadyResolver();
+        this.dataChannelReadyResolver = null;
+      }
     };
 
     this.dataChannel.onclose = () => {
@@ -246,9 +263,17 @@ export class WebRTCFileTransfer {
     if (!this.dataChannel) {
       throw new Error('Data channel not initialized');
     }
-    
+
+    // Wait briefly for data channel to be ready if still connecting
     if (this.dataChannel.readyState !== 'open') {
-      throw new Error(`Data channel not ready. Current state: ${this.dataChannel.readyState}`);
+      try {
+        await Promise.race([
+          this.dataChannelReadyPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`Data channel not ready. Current state: ${this.dataChannel.readyState}`)), 5000)),
+        ]);
+      } catch (e) {
+        throw e;
+      }
     }
 
     if (!this.isConnected()) {
@@ -271,6 +296,18 @@ export class WebRTCFileTransfer {
     };
     this.dataChannel.send(JSON.stringify(metadata));
 
+    // Determine effective chunk size based on SCTP max message size
+    const negotiatedMax = this.peerConnection?.sctp?.maxMessageSize ?? CHUNK_SIZE;
+    const effectiveChunkSize = Math.max(16 * 1024, Math.min(CHUNK_SIZE, Math.floor(negotiatedMax - 1024)));
+
+    // Configure backpressure threshold
+    if (this.dataChannel) {
+      try {
+        // @ts-ignore - not in older TS lib
+        this.dataChannel.bufferedAmountLowThreshold = effectiveChunkSize * 8;
+      } catch {}
+    }
+
     // Send file in chunks
     let offset = 0;
     this.startTime = Date.now();
@@ -282,23 +319,21 @@ export class WebRTCFileTransfer {
           throw new Error('Transfer cancelled');
         }
 
-        const chunk = file.slice(offset, offset + CHUNK_SIZE);
+        const chunk = file.slice(offset, offset + effectiveChunkSize);
         const arrayBuffer = await chunk.arrayBuffer();
         
-        // Optimized buffering - allow larger buffer for maximum throughput
-        while (this.dataChannel.bufferedAmount > CHUNK_SIZE * 16 && !this.isTransferCancelled) {
-          // Check if connection is still alive
+        // Backpressure: wait for buffer to drain
+        while (this.dataChannel.bufferedAmount > (effectiveChunkSize * 8) && !this.isTransferCancelled) {
           if (!this.isConnected()) {
             throw new Error('Connection lost during transfer');
           }
-          await new Promise(resolve => setTimeout(resolve, 1));
+          await new Promise(resolve => setTimeout(resolve, 2));
         }
 
         if (this.isTransferCancelled) {
           throw new Error('Transfer cancelled');
         }
 
-        // Double-check connection before sending
         if (!this.isConnected()) {
           throw new Error('Connection lost during transfer');
         }
@@ -309,7 +344,7 @@ export class WebRTCFileTransfer {
           console.error('Error sending chunk:', sendError);
           throw new Error(`Failed to send chunk: ${sendError}`);
         }
-        offset += CHUNK_SIZE;
+        offset += effectiveChunkSize;
 
         const elapsedTime = (Date.now() - this.startTime) / 1000;
         const speed = offset / elapsedTime;
@@ -451,5 +486,19 @@ export class WebRTCFileTransfer {
     this.peerConnection?.close();
     this.dataChannel = null;
     this.peerConnection = null;
+  }
+
+  private async flushPendingRemoteCandidates() {
+    if (!this.peerConnection) return;
+    if (!this.peerConnection.remoteDescription) return;
+    const toAdd = [...this.pendingRemoteCandidates];
+    this.pendingRemoteCandidates = [];
+    for (const c of toAdd) {
+      try {
+        await this.peerConnection.addIceCandidate(new RTCIceCandidate(c));
+      } catch (e) {
+        console.warn('Skipping early ICE candidate due to add failure:', e);
+      }
+    }
   }
 }

@@ -179,19 +179,17 @@ All colors MUST be HSL.
   [role="dialog"],
   [data-radix-alert-dialog-content] {
     position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    max-width: min(90vw, 32rem) !important;
+    inset: 0 !important;
+    margin: auto !important;
+    max-width: min(92vw, 26rem) !important;
     width: auto !important;
-    min-width: min(320px, 90vw) !important;
+    min-width: 280px !important;
     max-height: 85vh !important;
     height: auto !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     z-index: 100 !important;
-    border-radius: 0.75rem !important;
-    margin: 0 !important;
+    border-radius: var(--radius) !important;
   }
 
   /* Ensure dialog overlay covers full viewport */
