@@ -299,29 +299,15 @@ const Index = () => {
   };
 
   const handleConnectToDevice = async (code: string) => {
+    // Find device in presence list
     const device = devices.find(d => d.device_code === code);
-    if (device) {
-      await connectToDevice(code, device.device_name);
-      toast({
-        title: 'Connecting...',
-        description: `Connecting to ${device.device_name}`,
-      });
-    }
-  };
-
-  // Helper to check if device is online
-  const isDeviceOnline = (deviceCode: string) => {
-    const device = devices.find(d => d.device_code === deviceCode);
-    if (!device) return false;
-    const lastSeen = new Date(device.last_seen);
-    const now = new Date();
-    return (now.getTime() - lastSeen.getTime()) < 30000; // 30 seconds
-  };
-
-  // Helper to get connection status for a device
-  const getDeviceConnectionStatus = (deviceCode: string) => {
-    const connection = activeConnections.get(deviceCode);
-    return connection?.state || 'disconnected';
+    const deviceName = device?.device_name || code;
+    
+    await connectToDevice(code, deviceName);
+    toast({
+      title: 'Connecting...',
+      description: `Connecting to ${deviceName}`,
+    });
   };
 
   return (
@@ -403,65 +389,50 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Available Devices Section */}
+        {/* Connected Devices Section */}
         <section>
           <h2 className="text-xl font-semibold mb-4 text-foreground">
-            Available Devices ({devices.filter(d => isDeviceOnline(d.device_code)).length}/{devices.length} online)
+            Connected Devices ({activeConnections.size})
           </h2>
           
-          {devices.length === 0 ? (
+          {activeConnections.size === 0 ? (
             <div className="glass-card rounded-xl p-8 border border-border text-center">
-              <p className="text-muted-foreground">No devices found. Share your code or connect to another device.</p>
+              <p className="text-muted-foreground">No connected devices. Click "Connect via Code" to connect to another device.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {devices.map((device) => {
-                const online = isDeviceOnline(device.device_code);
-                const connectionStatus = getDeviceConnectionStatus(device.device_code);
-                const isConnected = connectionStatus === 'connected';
+              {Array.from(activeConnections.values()).map((connection) => {
+                const isConnected = connection.state === 'connected';
                 
                 return (
                   <div 
-                    key={device.device_code}
+                    key={connection.deviceCode}
                     className="glass-card rounded-xl p-5 border border-border hover:border-primary/30 transition-all"
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${online ? 'bg-green-500' : 'bg-destructive'}`} />
-                        <span className="text-lg font-medium text-foreground">{device.device_name}</span>
+                        <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                        <span className="text-lg font-medium text-foreground">{connection.deviceName}</span>
                       </div>
                       <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
-                        {online ? <Wifi className="w-3 h-3 text-primary" /> : <WifiOff className="w-3 h-3 text-muted-foreground" />}
-                        <span className="text-xs font-medium text-primary">
-                          {isConnected ? 'Connected' : online ? 'Online' : 'Offline'}
+                        <Wifi className="w-3 h-3 text-primary" />
+                        <span className="text-xs font-medium text-primary capitalize">
+                          {connection.state}
                         </span>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      {!isConnected ? (
-                        <Button
-                          onClick={() => handleConnectToDevice(device.device_code)}
-                          disabled={!online}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 border-border hover:bg-secondary/50"
-                        >
-                          <Plus className="w-3 h-3 mr-2" />
-                          Connect
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => disconnectFromDevice(device.device_code)}
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 border-destructive/50 hover:bg-destructive/10 text-destructive"
-                        >
-                          Disconnect
-                        </Button>
-                      )}
                       <Button
-                        onClick={() => handleSendFile(device.device_code, device.device_name)}
+                        onClick={() => disconnectFromDevice(connection.deviceCode)}
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-destructive/50 hover:bg-destructive/10 text-destructive"
+                      >
+                        Disconnect
+                      </Button>
+                      <Button
+                        onClick={() => handleSendFile(connection.deviceCode, connection.deviceName)}
                         disabled={!isConnected}
                         size="sm"
                         className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:bg-muted"
