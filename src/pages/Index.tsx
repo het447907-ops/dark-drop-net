@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileUploadZone } from '@/components/FileUploadZone';
 import { TransferProgress } from '@/components/TransferProgress';
 import { ConnectDialog } from '@/components/ConnectDialog';
 import { DownloadPrompt } from '@/components/DownloadPrompt';
 import { ConnectionRequestDialog } from '@/components/ConnectionRequestDialog';
 import { useWebRTCSignaling } from '@/hooks/useWebRTCSignaling';
 import { FileTransferProgress } from '@/lib/webrtc';
-import { Monitor, Link2, Copy, Check, Wifi, WifiOff } from 'lucide-react';
+import { Smartphone, Plus, Pencil, Send, Wifi } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -21,7 +20,15 @@ const Index = () => {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
   const [transferProgress, setTransferProgress] = useState<FileTransferProgress | null>(null);
   const [receivedFile, setReceivedFile] = useState<{ blob: Blob; name: string } | null>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
+  const [isRenamingDevice, setIsRenamingDevice] = useState(false);
+  const [tempDeviceName, setTempDeviceName] = useState('');
+  
+  // Mock connected devices for demonstration
+  const [connectedDevices] = useState([
+    { id: '1', name: "Het's Phone", online: true, code: '123456' },
+    { id: '2', name: 'Work Laptop', online: true, code: '234567' },
+    { id: '3', name: 'Desktop PC', online: false, code: '345678' },
+  ]);
 
 
 
@@ -141,38 +148,56 @@ const Index = () => {
     setReceivedFile(null);
   };
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(myDeviceCode);
-    setCodeCopied(true);
-    setTimeout(() => setCodeCopied(false), 2000);
-    toast({
-      title: 'Code Copied!',
-      description: 'Device code copied to clipboard',
-    });
+  const handleRenameDevice = () => {
+    if (tempDeviceName.trim()) {
+      setMyDeviceName(tempDeviceName);
+      setIsRenamingDevice(false);
+      toast({
+        title: 'Device Renamed',
+        description: `Device renamed to ${tempDeviceName}`,
+      });
+    }
+  };
+
+  const handleSendFile = async (deviceName: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.onchange = async (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      if (files.length > 0) {
+        toast({
+          title: 'Sending File',
+          description: `Sending ${files[0].name} to ${deviceName}...`,
+        });
+        // File transfer logic would go here
+      }
+    };
+    input.click();
   };
 
   if (!nameSet) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="glass-card rounded-2xl p-8 max-w-md w-full space-y-6 scale-in">
           <div className="text-center space-y-2">
-            <h1 className="text-4xl font-bold text-glow">Shadow Transfer</h1>
-            <p className="text-muted-foreground">Secure P2P File Transfer</p>
+            <h1 className="text-4xl font-bold text-primary">Dark Beam Transfer</h1>
+            <p className="text-muted-foreground">Secure peer-to-peer file sharing</p>
           </div>
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Device Name</label>
+              <label className="text-sm font-medium text-foreground">Device Name</label>
               <Input
                 placeholder="Enter your device name"
                 value={myDeviceName}
                 onChange={(e) => setMyDeviceName(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSetName()}
-                className="text-center glass-card border-primary/30 focus:border-primary/50 transition-all"
+                className="bg-secondary/50 border-border text-foreground"
               />
             </div>
             <Button 
               onClick={handleSetName} 
-              className="w-full bg-gradient-to-r from-primary to-accent hover:shadow-lg hover:shadow-primary/50 transition-all" 
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" 
               size="lg"
             >
               Get Started
@@ -184,155 +209,149 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 fade-in">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
-        <div className="glass-card rounded-2xl p-6 slide-in-up">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-glow">Shadow Transfer</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Secure peer-to-peer file sharing
-              </p>
-            </div>
-            <div className="flex items-center gap-3 glass-card px-4 py-2 rounded-lg">
-              <Monitor className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium">{myDeviceName}</span>
+        <header className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-primary mb-1">Dark Beam Transfer</h1>
+            <p className="text-muted-foreground text-sm">Secure peer-to-peer file sharing</p>
+          </div>
+          <Button 
+            onClick={() => setConnectDialogOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Connect via Code
+          </Button>
+        </header>
+
+        {/* This Device Section */}
+        <section>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-foreground">
+            <Smartphone className="w-5 h-5 text-primary" />
+            This Device
+          </h2>
+          
+          <div className="glass-card rounded-xl p-6 border border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                {isRenamingDevice ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={tempDeviceName}
+                      onChange={(e) => setTempDeviceName(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleRenameDevice()}
+                      placeholder="Device name"
+                      className="max-w-xs bg-secondary/50 border-border"
+                      autoFocus
+                    />
+                    <Button 
+                      onClick={handleRenameDevice}
+                      size="sm"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      Save
+                    </Button>
+                    <Button 
+                      onClick={() => setIsRenamingDevice(false)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-foreground mb-1">{myDeviceName || '1'}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Connection Code: <span className="text-primary font-mono font-semibold">BEAM-{myDeviceCode}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              {!isRenamingDevice && (
+                <Button
+                  onClick={() => {
+                    setTempDeviceName(myDeviceName);
+                    setIsRenamingDevice(true);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-border hover:bg-secondary/50"
+                >
+                  Rename
+                </Button>
+              )}
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Panel - Connection */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="glass-card rounded-2xl p-6 space-y-4 slide-in-right">
-              <div>
-                <h2 className="text-xl font-semibold mb-2">My Device Code</h2>
-                <div className="glass-card rounded-xl p-4 flex items-center justify-between pulse-glow">
-                  <span className="text-3xl font-bold tracking-widest text-primary">
-                    {myDeviceCode}
-                  </span>
+        {/* Connected Devices Section */}
+        <section>
+          <h2 className="text-xl font-semibold mb-4 text-foreground">
+            Connected Devices ({connectedDevices.filter(d => d.online).length}/{connectedDevices.length} online)
+          </h2>
+          
+          <div className="space-y-3">
+            {connectedDevices.map((device) => (
+              <div 
+                key={device.id}
+                className="glass-card rounded-xl p-5 border border-border hover:border-primary/30 transition-all"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-3 h-3 rounded-full ${device.online ? 'bg-green-500' : 'bg-destructive'}`} />
+                    <span className="text-lg font-medium text-foreground">{device.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                    <Wifi className="w-3 h-3 text-primary" />
+                    <span className="text-xs font-medium text-primary">{device.online ? 'Online' : 'Offline'}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={copyCode}
-                    className="hover:bg-primary/10 transition-all"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-border hover:bg-secondary/50"
                   >
-                    {codeCopied ? (
-                      <Check className="w-5 h-5 text-green-500 animate-scale-in" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
+                    <Pencil className="w-3 h-3 mr-2" />
+                    Rename
+                  </Button>
+                  <Button
+                    onClick={() => handleSendFile(device.name)}
+                    disabled={!device.online}
+                    size="sm"
+                    className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:bg-muted"
+                  >
+                    <Send className="w-3 h-3 mr-2" />
+                    Send File
                   </Button>
                 </div>
               </div>
-
-              <Button
-                onClick={() => setConnectDialogOpen(true)}
-                variant="outline"
-                className="w-full border-primary/30 hover:border-primary/50 hover:bg-primary/10 transition-all"
-              >
-                <Link2 className="w-4 h-4 mr-2" />
-                Connect by Code
-              </Button>
-            </div>
+            ))}
           </div>
+        </section>
 
-          {/* Right Panel - Transfer */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="glass-card rounded-2xl p-6 scale-in">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-2">File Transfer</h2>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    {connectionState === 'connected' ? (
-                      <Wifi className="w-4 h-4 text-green-500 animate-pulse" />
-                    ) : connectionState === 'connecting' ? (
-                      <Wifi className="w-4 h-4 text-yellow-500 animate-pulse" />
-                    ) : (
-                      <WifiOff className="w-4 h-4 text-muted" />
-                    )}
-                    <div
-                      className={`w-3 h-3 rounded-full transition-all ${
-                        connectionState === 'connected' 
-                          ? 'bg-green-500 animate-pulse shadow-lg shadow-green-500/50' 
-                          : connectionState === 'connecting'
-                          ? 'bg-yellow-500 animate-pulse shadow-lg shadow-yellow-500/50'
-                          : 'bg-muted'
-                      }`}
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {connectedTo && connectedDeviceName
-                      ? connectionState === 'connected'
-                        ? `Connected to ${connectedDeviceName}`
-                        : `Connecting to ${connectedDeviceName}...`
-                      : connectionState === 'connecting' 
-                      ? 'Connecting...'
-                      : 'Not connected'}
-                  </p>
-                  {connectedTo && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={disconnect}
-                      className="ml-auto hover:bg-destructive/10 hover:text-destructive transition-all"
-                    >
-                      Disconnect
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <FileUploadZone
-                  onFileSelect={handleFileSelect}
-                  disabled={connectionState !== 'connected'}
-                />
-
-                {transferProgress && (
-                  <TransferProgress
-                    progress={transferProgress}
-                    isReceiving={false}
-                    onCancel={handleCancelTransfer}
-                  />
-                )}
-
-                {receivedFile && (
-                  <DownloadPrompt
-                    fileName={receivedFile.name}
-                    onDownload={handleDownload}
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="glass-card rounded-2xl p-6 slide-in-up">
-              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <div className="w-1 h-6 bg-gradient-to-b from-primary to-accent rounded-full" />
-                How it works
-              </h3>
-              <ol className="space-y-3 text-sm text-muted-foreground">
-                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
-                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">1</span>
-                  <span>Share your device code or connect to another device</span>
-                </li>
-                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
-                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">2</span>
-                  <span>Wait for the connection to establish</span>
-                </li>
-                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
-                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">3</span>
-                  <span>Upload your file - it transfers directly between devices</span>
-                </li>
-                <li className="flex gap-3 items-start hover:text-foreground transition-colors">
-                  <span className="font-semibold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">4</span>
-                  <span>Files auto-download on the receiver's end</span>
-                </li>
-              </ol>
-            </div>
+        {/* Transfer Progress */}
+        {transferProgress && (
+          <div className="glass-card rounded-xl p-6 border border-border">
+            <TransferProgress
+              progress={transferProgress}
+              isReceiving={false}
+              onCancel={handleCancelTransfer}
+            />
           </div>
-        </div>
+        )}
+
+        {/* Download Prompt */}
+        {receivedFile && (
+          <DownloadPrompt
+            fileName={receivedFile.name}
+            onDownload={handleDownload}
+          />
+        )}
       </div>
 
       <ConnectDialog
